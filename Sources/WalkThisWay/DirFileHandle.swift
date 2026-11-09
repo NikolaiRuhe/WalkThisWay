@@ -10,7 +10,7 @@ struct DirFileHandle: ~Copyable, Hashable {
             path.cString,
             O_RDONLY | O_DIRECTORY | O_CLOEXEC
         )
-        if fileDescriptor < 0 { throw POSIXError.errno }
+        if fileDescriptor < 0 { throw POSIXError.fromErrno }
     }
 
     /// Open directory at `path`, relative to existing file handle.
@@ -20,12 +20,12 @@ struct DirFileHandle: ~Copyable, Hashable {
             path.cString,
             O_RDONLY | O_DIRECTORY | O_CLOEXEC
         )
-        if fileDescriptor < 0 { throw POSIXError.errno }
+        if fileDescriptor < 0 { throw POSIXError.fromErrno }
     }
 
     consuming func close() throws(POSIXError) {
         let result = Darwin.close(fileDescriptor)
-        if result < 0 { throw POSIXError.errno }
+        if result < 0 { throw POSIXError.fromErrno }
     }
 
     deinit {
@@ -34,7 +34,11 @@ struct DirFileHandle: ~Copyable, Hashable {
 }
 
 extension POSIXError {
-    static var errno: POSIXError {
-        POSIXError(POSIXErrorCode(rawValue: Darwin.errno) ?? .ENOTRECOVERABLE)
+    static var fromErrno: Self {
+        .init(POSIXErrorCode(rawValue: Darwin.errno) ?? .ENOTRECOVERABLE)
+    }
+
+    init(_ code: Int32) {
+        self.init(POSIXErrorCode(rawValue: code) ?? .ENOTRECOVERABLE)
     }
 }

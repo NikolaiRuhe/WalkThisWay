@@ -32,7 +32,7 @@ public struct Directory: Sendable {
                 if let error = entry.error {
                     errorHandler(
                         path.appending(entry.name),
-                        POSIXError(POSIXErrorCode(rawValue: Int32(error)) ?? .ENOTRECOVERABLE),
+                        error,
                     )
                 } else if entry.type == .directory {
                     dirEntries.append(entry)

@@ -1,7 +1,7 @@
 import Foundation
 import Synchronization
 
-public final class DirectoryScan: Sendable, CustomStringConvertible {
+final class DirectoryScan: Sendable, CustomStringConvertible {
     let path: Path
     let fileCount:        Atomic<Int> = .init(0)
     let logicalSize:      Atomic<Int> = .init(0)
@@ -10,19 +10,21 @@ public final class DirectoryScan: Sendable, CustomStringConvertible {
     let overallTaskCount: Atomic<Int> = .init(0)
     let currentTaskCount: Mutex<Int> = .init(0)
     let maxParallelTasks: Int
+    let quiet:            Bool
 
     let continuation: AsyncStream<Directory>.Continuation
     let directories: AsyncStream<Directory>
 
-    public init(_ path: Path, maxParallelTasks: Int) {
+    init(_ path: Path, quiet: Bool = false, maxParallelTasks: Int) {
         let (stream, continuation) = AsyncStream<Directory>.makeStream()
         self.continuation = continuation
         self.directories = stream
         self.maxParallelTasks = maxParallelTasks
+        self.quiet = quiet
         self.path = path
     }
 
-    public func traverse() async {
+    func traverse() async {
         spawnAsyncTraversal(Directory(path))
 
         await withDiscardingTaskGroup { group in
@@ -69,9 +71,12 @@ public final class DirectoryScan: Sendable, CustomStringConvertible {
             } files: { file in
                 fileCount.wrappingAdd(1, ordering: .relaxed)
                 logicalSize.wrappingAdd(file.size, ordering: .relaxed)
-//                print(file)
+                if !quiet {
+                    print(file)
+                }
             } errors: { path, error in
                 print("warning: \(path): \(error.localizedDescription)")
+                errorCount.wrappingAdd(1, ordering: .relaxed)
             }
         } catch {
             print("warning: \(directory.path): \(error.localizedDescription)")
@@ -79,7 +84,7 @@ public final class DirectoryScan: Sendable, CustomStringConvertible {
         }
     }
 
-    public var description: String {
+    var description: String {
         """
                     path: \(path)
              directories: \(dirCount.load(ordering: .relaxed))

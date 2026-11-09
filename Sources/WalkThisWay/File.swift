@@ -15,7 +15,7 @@ public struct File: CustomStringConvertible {
     public var isLink: Bool { dirEntry.type == .symbolicLink }
 
     public var description: String {
-        "\(String(format: "%14d", size)) \(path)"
+        "\(isLink ? " symbolic link" : String(format: "%14d", size)) \(path)"
     }
 }
 

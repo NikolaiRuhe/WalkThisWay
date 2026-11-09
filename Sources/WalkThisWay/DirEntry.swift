@@ -3,7 +3,7 @@ import Darwin
 
 /// Information about an entry in the filesystem.
 internal struct DirEntry: Sendable {
-    var error: UInt32?
+    var errorCode: UInt32?
     var name: [CChar]
     var type: DirEntryType
     var fileID: UInt64?
@@ -11,6 +11,8 @@ internal struct DirEntry: Sendable {
     var modTime: timespec?
     var accTime: timespec?
     var size: Int?
+
+    var error: POSIXError? { errorCode.map { .init(Int32(bitPattern: $0)) } }
 }
 
 extension DirEntry: CustomStringConvertible {

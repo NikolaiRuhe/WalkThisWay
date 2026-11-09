@@ -1,19 +1,8 @@
 import Foundation
-public import Darwin
+import Darwin
 
-extension DirFileHandle {
-    internal func enumerateContentsOfDirectory(
-        options: attribute_set = .default,
-        _ entryHandler: (DirEntry) -> Void,
-    ) throws(POSIXError) {
-        try WalkThisWay.enumerateContentsOfDirectory(
-            at: self.fileDescriptor,
-            options: options,
-            entryHandler,
-        )
-    }
-}
 
+/// Enumerates contents of a directory. Wrapper around `getattrlistbulk`.
 internal func enumerateContentsOfDirectory(
     at fileDescriptor: Int32,
     options: attribute_set = .default,
@@ -33,7 +22,7 @@ internal func enumerateContentsOfDirectory(
                 buffer.count,
                 UInt64(FSOPT_PACK_INVAL_ATTRS)
             )
-            if count < 0 { throw POSIXError.errno }
+            if count < 0 { throw POSIXError.fromErrno }
             if count == 0 { break }
 
             var parser = AttrListParser(buffer.bytes)
@@ -50,7 +39,7 @@ internal func enumerateContentsOfDirectory(
 
 fileprivate let bufferSize = 64 * 1024
 
-/// Enumerates contents of a directory. Wrapper around `getattrlistbulk`.
+/// Parses the output of `getattrlistbulk`.
 fileprivate struct AttrListParser: ~Escapable {
     let bytes: RawSpan
     var offset: Int
@@ -93,17 +82,17 @@ fileprivate struct AttrListParser: ~Escapable {
 
         var dirEntry: DirEntry = .init(name: [], type: .other)
         let attrs = unsafeRead(attribute_set.self)
-        if attrs.error   { dirEntry.error = read(UInt32.self) }
+        if attrs.hasError { dirEntry.errorCode = read(UInt32.self) }
 
-        guard attrs.name && attrs.objType else { return nil }
+        guard attrs.hasName && attrs.hasObjType else { return nil }
         dirEntry.name = readFilename()
         dirEntry.type = .init(vtype(read(fsobj_type_t.self)))
 
-        if attrs.crTime  { dirEntry.crTime = unsafeRead(timespec.self) }
-        if attrs.modTime { dirEntry.modTime = unsafeRead(timespec.self) }
-        if attrs.accTime { dirEntry.accTime = unsafeRead(timespec.self) }
-        if attrs.fileID  { dirEntry.fileID = read(UInt64.self) }
-        if attrs.dataLength { dirEntry.size = Int(read(off_t.self)) }
+        if attrs.hasCrTime { dirEntry.crTime = unsafeRead(timespec.self) }
+        if attrs.hasModTime { dirEntry.modTime = unsafeRead(timespec.self) }
+        if attrs.hasAccTime { dirEntry.accTime = unsafeRead(timespec.self) }
+        if attrs.hasFileID { dirEntry.fileID = read(UInt64.self) }
+        if attrs.hasDataLength { dirEntry.size = Int(read(off_t.self)) }
 
         return dirEntry
     }
@@ -123,7 +112,7 @@ fileprivate extension attrgroup_t {
 }
 
 extension attribute_set {
-    public static var `default`: Self {
+    static var `default`: Self {
         .init(
             commonattr: ATTR_CMN_RETURNED_ATTRS | attrgroup_t(ATTR_CMN_NAME) | attrgroup_t(ATTR_CMN_OBJTYPE),
             volattr: 0,
@@ -133,34 +122,34 @@ extension attribute_set {
         )
     }
 
-    public var error: Bool       {
+    var hasError: Bool       {
         get { commonattr.isSet(ATTR_CMN_ERROR) }
     }
-    public var name: Bool       {
+    var hasName: Bool       {
         get { commonattr.isSet(ATTR_CMN_NAME) }
         set { commonattr.set(ATTR_CMN_NAME, to: newValue) }
     }
-    public var objType: Bool    {
+    var hasObjType: Bool    {
         get{ commonattr.isSet(ATTR_CMN_OBJTYPE) }
         set{ commonattr.set(ATTR_CMN_OBJTYPE, to: newValue) }
     }
-    public var crTime: Bool     {
+    var hasCrTime: Bool     {
         get{ commonattr.isSet(ATTR_CMN_CRTIME) }
         set{ commonattr.set(ATTR_CMN_CRTIME, to: newValue) }
     }
-    public var modTime: Bool    {
+    var hasModTime: Bool    {
         get{ commonattr.isSet(ATTR_CMN_MODTIME) }
         set{ commonattr.set(ATTR_CMN_MODTIME, to: newValue) }
     }
-    public var accTime: Bool    {
+    var hasAccTime: Bool    {
         get{ commonattr.isSet(ATTR_CMN_ACCTIME) }
         set{ commonattr.set(ATTR_CMN_ACCTIME, to: newValue) }
     }
-    public var fileID: Bool     {
+    var hasFileID: Bool     {
         get{ commonattr.isSet(ATTR_CMN_FILEID) }
         set{ commonattr.set(ATTR_CMN_FILEID, to: newValue) }
     }
-    public var dataLength: Bool {
+    var hasDataLength: Bool {
         get{ fileattr.isSet(ATTR_FILE_DATALENGTH) }
         set{ fileattr.set(ATTR_FILE_DATALENGTH, to: newValue) }
     }

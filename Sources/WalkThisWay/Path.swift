@@ -1,7 +1,7 @@
 import Foundation
 
-/// A filename or path into the filesystem, stored as a C string. Relative paths
-/// can reference a chain of base paths.
+/// A filename or path into the filesystem, stored as a C string, plus a linked
+/// list of relative base paths.
 public struct Path: Sendable, Hashable, CustomStringConvertible {
     // always non-empty and zero terminated
     var cString: [CChar]
@@ -31,8 +31,6 @@ public struct Path: Sendable, Hashable, CustomStringConvertible {
         self.init(.init(UnsafeBufferPointer(start: ptr, count: strlen(ptr) + 1)), relativeTo: base)
     }
 
-    public static let root: Self = .init([.pathSeparator, 0])
-
     /// The base path this (relative) path is based on.
     var basePath: Path? { basePathRef?.wrapped }
 
@@ -56,7 +54,7 @@ public struct Path: Sendable, Hashable, CustomStringConvertible {
         )
     }
 
-    public func appending(_ other: [CChar]) -> Path {
+    func appending(_ other: [CChar]) -> Path {
         return Path(other, relativeTo: self)
     }
 }
